@@ -1,0 +1,6 @@
+mcp[cli]
+openai-agents
+openai
+watchdog
+numpy
+python-dotenv

@@ -1,0 +1,42 @@
+{
+  "project_name": "latency-aware-target-control",
+  "project_path": "/home/user/Desktop/latency-aware-target-control",
+  "build_dir": "build",
+
+  "configure_command": [
+    "cmake",
+    "-S",
+    ".",
+    "-B",
+    "build"
+  ],
+
+  "build_command": [
+    "cmake",
+    "--build",
+    "build"
+  ],
+
+  "test_command": [
+    "ctest",
+    "--test-dir",
+    "build",
+    "--output-on-failure"
+  ],
+
+  "watch_extensions": [
+    ".c",
+    ".h",
+    ".cpp",
+    ".hpp",
+    ".cmake"
+  ],
+
+  "ignore_dirs": [
+    ".git",
+    "build"
+  ],
+
+  "debounce_seconds": 2.0,
+  "command_timeout_seconds": 120
+}
