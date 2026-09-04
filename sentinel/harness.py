@@ -3,7 +3,13 @@ import time
 from pathlib import Path
 from queue import Empty, Queue
 
-from sentinel.agent import run_diagnostic_agent
+from sentinel.agent import (
+    run_diagnostic_agent,
+    refresh_project_knowledge,
+)
+from sentinel.knowledge_store import (
+    append_recovered_incident,
+)
 from sentinel.config import SentinelConfig
 from sentinel.recovery import execute_recovery_action
 from sentinel.reporting import SentinelReportWriter
@@ -571,6 +577,49 @@ Return the structured diagnostic result.
             f"{md_path}"
         )
 
+        # ====================================================
+        # 7. LEARN FROM VERIFIED RECOVERY
+        # ====================================================
+
+        if (
+            final_status == "AUTO-RECOVERED"
+            and diagnosis is not None
+            and verification is not None
+        ):
+
+            knowledge_path = (
+                append_recovered_incident(
+                    ROOT_DIR
+                    / "knowledge"
+                    / "past_errors.md",
+                    diagnosis=diagnosis,
+                    action=diagnosis.recommended_action,
+                    verification=verification,
+                )
+            )
+
+            print()
+            print(
+                "[KNOWLEDGE] "
+                "Verified recovery saved:"
+            )
+
+            print(
+                f"[KNOWLEDGE] "
+                f"{knowledge_path}"
+            )
+
+            print(
+                "[KNOWLEDGE] "
+                "Rebuilding RAG index..."
+            )
+
+            refresh_project_knowledge()
+
+            print(
+                "[KNOWLEDGE] "
+                "Knowledge index updated."
+            )
         print()
         print(
             "[HARNESS] Returning to WATCHING"

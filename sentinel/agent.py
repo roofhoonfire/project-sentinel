@@ -33,7 +33,11 @@ if not os.getenv("OPENAI_API_KEY"):
 retriever = KnowledgeRetriever(
     ROOT_DIR / "knowledge"
 )
-
+def refresh_project_knowledge():
+    """
+    Reload project knowledge and rebuild the in-memory RAG index.
+    """
+    retriever.reload()
 
 # ============================================================
 # Structured Agent Output

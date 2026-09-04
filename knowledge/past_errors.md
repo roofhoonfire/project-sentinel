@@ -19,3 +19,30 @@ CRC-16 validation is performed before TargetCommand is accepted.
 Stale CMake build directories can occasionally cause configuration
 or dependency problems. A clean configure and rebuild can be used as
 a safe recovery action.
+
+
+## Auto-Recovered Incident - 2026-09-04T18:19:06.762708+09:00
+
+### Symptom
+
+Status: BUILD_FAILED
+
+Git status and diff returned no output. Build failed with an explicit Sentinel fault indicating stale or corrupted CMake build state. Tests passed: 7/7.
+
+### Diagnosis
+
+Current test results are healthy, but the build directory is unusable or stale. Historical notes support clean reconfiguration for this condition; they do not indicate a source defect.
+
+### Recovery
+
+Action: clean_rebuild
+
+### Verification
+
+Status: HEALTHY
+
+Build completed successfully and all 7 tests passed.
+
+### Result
+
+AUTO-RECOVERED
