@@ -46,3 +46,57 @@ Build completed successfully and all 7 tests passed.
 ### Result
 
 AUTO-RECOVERED
+
+
+## Auto-Recovered Incident - 2026-09-07T14:57:06.133058+09:00
+
+### Symptom
+
+Status: BUILD_FAILED
+
+Git shows an untracked steering_controller.c; git_diff is empty. Build fails because build/CMakeCache.txt is corrupted (SENTINEL_EVAL_CORRUPTED_CACHE). Tests independently pass 7/7.
+
+### Diagnosis
+
+The current failure is corrupted/stale CMake build state, not an evidenced source or test defect. Historical notes support this diagnosis.
+
+### Recovery
+
+Action: clean_rebuild
+
+### Verification
+
+Status: HEALTHY
+
+Build completed successfully with all targets built. Complete test suite passed: 7/7 tests, 0 failures.
+
+### Result
+
+AUTO-RECOVERED
+
+
+## Auto-Recovered Incident - 2026-09-07T14:58:56.288148+09:00
+
+### Symptom
+
+Status: BUILD_FAILED
+
+Git status and diff returned no output. Build failed because build/CMakeCache.txt contains SENTINEL_EVAL_CORRUPTED_CACHE and lacks a valid CMAKE_GENERATOR. Tests independently passed 7/7.
+
+### Diagnosis
+
+The build directory has corrupted/stale CMake state; current evidence does not indicate a source or test defect. Historical notes corroborate this condition.
+
+### Recovery
+
+Action: clean_rebuild
+
+### Verification
+
+Status: HEALTHY
+
+Build completed successfully and all 7 tests passed.
+
+### Result
+
+AUTO-RECOVERED

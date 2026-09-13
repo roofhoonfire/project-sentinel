@@ -1,0 +1,48 @@
+{
+  "project": "latency-aware-target-control",
+  "changes": [
+    {
+      "event_type": "modified",
+      "path": "common/src/steering_controller.c",
+      "timestamp": 1788760718.5797477
+    }
+  ],
+  "diagnosis": {
+    "status": "BUILD_FAILED",
+    "evidence": "Git status and diff returned no output. Build failed because build/CMakeCache.txt contains SENTINEL_EVAL_CORRUPTED_CACHE and lacks a valid CMAKE_GENERATOR. Tests independently passed 7/7.",
+    "diagnosis": "The build directory has corrupted/stale CMake state; current evidence does not indicate a source or test defect. Historical notes corroborate this condition.",
+    "recommended_action": "clean_rebuild"
+  },
+  "recovery": {
+    "action": "clean_rebuild",
+    "executed": true,
+    "success": true,
+    "result": {
+      "success": true,
+      "stage": "build",
+      "configure": {
+        "success": true,
+        "returncode": 0,
+        "command": "cmake -S . -B build",
+        "stdout": "-- The C compiler identification is GNU 11.4.0\n-- The CXX compiler identification is GNU 11.4.0\n-- Detecting C compiler ABI info\n-- Detecting C compiler ABI info - done\n-- Check for working C compiler: /usr/bin/cc - skipped\n-- Detecting C compile features\n-- Detecting C compile features - done\n-- Detecting CXX compiler ABI info\n-- Detecting CXX compiler ABI info - done\n-- Check for working CXX compiler: /usr/bin/c++ - skipped\n-- Detecting CXX compile features\n-- Detecting CXX compile features - done\n-- Configuring done\n-- Generating done\n-- Build files have been written to: /home/user/Desktop/latency-aware-target-control/build\n",
+        "stderr": ""
+      },
+      "build": {
+        "success": true,
+        "returncode": 0,
+        "command": "cmake --build build",
+        "stdout": "[  3%] Building C object common/CMakeFiles/protocol_codec.dir/src/crc16.c.o\n[  6%] Building C object common/CMakeFiles/protocol_codec.dir/src/target_command_codec.c.o\n[ 10%] Building C object common/CMakeFiles/protocol_codec.dir/src/uart_frame_codec.c.o\n[ 13%] Building C object common/CMakeFiles/protocol_codec.dir/src/uart_frame_validator.c.o\n[ 16%] Linking C static library libprotocol_codec.a\n[ 16%] Built target protocol_codec\n[ 20%] Building C object common/CMakeFiles/control_app.dir/src/steering_controller.c.o\n[ 23%] Linking C static library libcontrol_app.a\n[ 23%] Built target control_app\n[ 26%] Building C object common/CMakeFiles/actuator_service.dir/src/sg90_mapper.c.o\n[ 30%] Linking C static library libactuator_service.a\n[ 30%] Built target actuator_service\n[ 33%] Building CXX object pc/CMakeFiles/pc_detection_input.dir/src/detection_csv_reader.cpp.o\n[ 36%] Building CXX object pc/CMakeFiles/pc_detection_input.dir/src/udp_detection_receiver.cpp.o\n[ 40%] Linking CXX static library libpc_detection_input.a\n[ 40%] Built target pc_detection_input\n[ 43%] Building CXX object pc/CMakeFiles/pc_uart_transport.dir/src/serial_port.cpp.o\n[ 46%] Linking CXX static library libpc_uart_transport.a\n[ 46%] Built target pc_uart_transport\n[ 50%] Building CXX object pc/CMakeFiles/target_control_pc.dir/src/main.cpp.o\n[ 53%] Linking CXX executable target_control_pc\n[ 53%] Built target target_control_pc\n[ 56%] Building CXX object tests/CMakeFiles/target_command_codec_test.dir/common/target_command_codec_test.cpp.o\n[ 60%] Linking CXX executable target_command_codec_test\n[ 60%] Built target target_command_codec_test\n[ 63%] Building CXX object tests/CMakeFiles/crc16_test.dir/common/crc16_test.cpp.o\n[ 66%] Linking CXX executable crc16_test\n[ 66%] Built target crc16_test\n[ 70%] Building CXX object tests/CMakeFiles/uart_frame_codec_test.dir/common/uart_frame_codec_test.cpp.o\n[ 73%] Linking CXX executable uart_frame_codec_test\n[ 73%] Built target uart_frame_codec_test\n[ 76%] Building CXX object tests/CMakeFiles/serial_port_test.dir/pc/serial_port_test.cpp.o\n[ 80%] Linking CXX executable serial_port_test\n[ 80%] Built target serial_port_test\n[ 83%] Building CXX object tests/CMakeFiles/uart_frame_validator_test.dir/common/uart_frame_validator_test.cpp.o\n[ 86%] Linking CXX executable uart_frame_validator_test\n[ 86%] Built target uart_frame_validator_test\n[ 90%] Building CXX object tests/CMakeFiles/steering_controller_test.dir/common/steering_controller_test.cpp.o\n[ 93%] Linking CXX executable steering_controller_test\n[ 93%] Built target steering_controller_test\n[ 96%] Building CXX object tests/CMakeFiles/sg90_mapper_test.dir/common/sg90_mapper_test.cpp.o\n[100%] Linking CXX executable sg90_mapper_test\n[100%] Built target sg90_mapper_test\n",
+        "stderr": ""
+      }
+    }
+  },
+  "verification": {
+    "status": "HEALTHY",
+    "evidence": "Build completed successfully and all 7 tests passed.",
+    "diagnosis": "No meaningful regression detected.",
+    "recommended_action": "none"
+  },
+  "final_status": "AUTO-RECOVERED",
+  "run_id": "20260907_145856_287801",
+  "timestamp": "2026-09-07T14:58:56.287801+09:00"
+}

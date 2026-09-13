@@ -1,156 +1,246 @@
 # Project Sentinel
 
-Project Sentinel is an always-on engineering agent that monitors
-software-project changes, diagnoses failures using current engineering
-state and historical project knowledge, performs only allowlisted
-recovery actions, and verifies recovery through build and test execution.
+Project Sentinel is an always-on engineering agent that monitors software-project changes, diagnoses failures using current engineering state and historical project knowledge, performs only allowlisted recovery actions, verifies recovery through build and test execution, and reuses successfully verified recovery experiences as future diagnostic knowledge.
 
 ## Motivation
 
-During embedded/control software development, build failures and
-configuration problems repeatedly require checking Git state,
-rebuilding the project, running tests, and recalling previous
-failure patterns.
+During embedded/control software development, build failures and configuration problems repeatedly require checking Git state, rebuilding the project, running tests, and recalling previous failure patterns.
 
-Project Sentinel automates this engineering feedback loop while
-separating AI-based diagnosis from execution authority.
+Project Sentinel automates this engineering feedback loop while separating AI-based diagnosis from execution authority.
+
+Rather than stopping at diagnosis or recovery, the system also records successfully verified recovery incidents back into its knowledge base so that similar future failures can reuse previously validated experience.
+
+---
 
 ## Architecture
 
 ```text
-File System
-    |
-    | source change
-    v
-+-----------+
-|  Watcher  |
-+-----------+
-    |
-    | event / debounce
-    v
-+-----------+
-|  Harness  |
-+-----------+
-    |
-    v
-+--------------------+
-| Diagnostic Agent   |
-+--------------------+
-    |              |
-    |              |
-    v              v
-+-------+       +-------+
-|  MCP  |       |  RAG  |
-+-------+       +-------+
-    |              |
-    v              v
-Git / Build /     Historical
-Test State        Project Knowledge
-    \              /
-     \            /
-      v          v
-   DiagnosticResult
-          |
-          | recommended action
-          v
-+----------------------+
-| Harness Safety Policy|
-+----------------------+
-      |            |
-   unsafe          safe
-      |            |
-      v            v
- Human Review   Recovery MCP
-                    |
-                    v
-              Recovery Action
-                    |
-                    v
-                Verify
-                    |
-            +-------+-------+
-            |               |
-         HEALTHY          FAILED
-            |               |
-     AUTO-RECOVERED    HUMAN REVIEW
-            |
-            v
-       JSON / Markdown
-          Report
+                 Monitored Project
+             latency-aware-target-control
+                         |
+                  source change
+                         |
+                         v
+                   +-----------+
+                   |  Watcher  |
+                   +-----------+
+                         |
+                  event / debounce
+                         |
+                         v
+                   +-----------+
+                   |  Harness  |
+                   +-----------+
+                         |
+                         v
+              +--------------------+
+              | Diagnostic Agent   |
+              +--------------------+
+                  |              |
+                  |              |
+                  v              v
+              +-------+      +-------+
+              |  MCP  |      |  RAG  |
+              +-------+      +-------+
+                  |              |
+                  v              v
+          Git / Build /       Historical
+           Test State       Project Knowledge
+                  \              /
+                   \            /
+                    v          v
+                 DiagnosticResult
+                        |
+                 recommended action
+                        |
+                        v
+              +----------------------+
+              | Harness Safety Policy|
+              +----------------------+
+                   |              |
+                unsafe           safe
+                   |              |
+                   v              v
+             Human Review     Recovery MCP
+                                  |
+                                  v
+                           Recovery Action
+                                  |
+                                  v
+                              Verification
+                                  |
+                          +-------+-------+
+                          |               |
+                       HEALTHY          FAILED
+                          |               |
+                   AUTO-RECOVERED    HUMAN REVIEW
+                          |
+                          v
+                   JSON / Markdown
+                        Report
+                          |
+                          v
+                 Verified Incident
+                   Knowledge Update
+                          |
+                          v
+                    RAG Re-index
+                          |
+                          +----------+
+                                     |
+                                     v
+                              Future Diagnosis
 ```
+
+---
+
+## Monitored Project
+
+Current validation target:
+
+`latency-aware-target-control`
+
+The monitored project contains shared embedded-control software and a CMake/CTest-based host validation environment.
+
+The project includes:
+
+- common C control logic
+- PC-side C++ applications
+- communication/protocol modules
+- actuator mapping
+- host-side deterministic tests
+- STM32 and Zynq integration assets
+
+Seven host tests are currently used for deterministic verification.
+
+Project Sentinel and the monitored project are kept as separate sibling repositories.
+
+```text
+~/Desktop/
+├── latency-aware-target-control/
+└── project-sentinel/
+```
+
+Sentinel does not directly modify the monitored project's source code in the current version.
+
+---
 
 ## Core Components
 
-### Watcher
+### 1. Watcher
 
-Uses `watchdog` to monitor relevant source files.
+Project Sentinel uses `watchdog` to monitor relevant source files in the configured project directory.
 
-Generated directories such as `.git` and `build` are ignored.
-Multiple filesystem events generated by a single editor save are
-combined using debounce logic.
+Typical monitored extensions include:
 
-### MCP Engineering Tools
+- `.c`
+- `.h`
+- `.cpp`
+- `.hpp`
+- `.cmake`
 
-The local MCP server exposes engineering operations such as:
+Generated or irrelevant directories such as `.git` and `build` are ignored.
 
-- `git_status`
-- `git_diff`
-- `run_build`
-- `run_tests`
-- `reconfigure_project`
-- `clean_rebuild`
+The Watcher does not interpret source-code semantics.
 
-The diagnostic agent can access only read/diagnostic tools.
+Its responsibility is only to detect filesystem changes and send project-change events to the Harness.
 
-Recovery tools are executed separately by the Harness.
+Multiple filesystem events generated by a single editor save are combined through debounce logic before an Agent execution is triggered.
 
-### RAG
+```text
+File Change
+    ↓
+Watchdog Event
+    ↓
+Queue
+    ↓
+Debounce / Batch
+    ↓
+Harness
+```
 
-Historical project knowledge is stored in local Markdown documents.
+---
 
-`sentence-transformers/all-MiniLM-L6-v2` converts knowledge chunks
-into normalized 384-dimensional embeddings.
+### 2. Harness
 
-Semantic retrieval uses vector inner-product ranking, equivalent to
-cosine-similarity ranking for normalized embeddings.
-
-### Diagnostic Agent
-
-The LLM combines:
-
-- current Git state
-- build results
-- test results
-- retrieved historical project knowledge
-
-and produces a structured diagnostic result containing:
-
-- status
-- evidence
-- diagnosis
-- recommended action
-
-### Harness
-
-The Harness owns system-level orchestration.
+The Harness owns system-level orchestration around the LLM-based Agent.
 
 It controls:
 
 - event batching
-- agent invocation
+- Agent invocation
+- diagnostic workflow
 - recovery authorization
 - execution policy
 - post-recovery verification
-- reporting
+- report generation
+- knowledge accumulation
+- RAG re-indexing
 - return to monitoring state
 
-The LLM does not directly own execution authority.
+The LLM does not directly own system execution authority.
 
-## Safety Model
+This separation is a core design principle of Project Sentinel.
 
-The diagnostic agent cannot directly access recovery tools.
+```text
+Agent
+  ↓
+recommends action
 
-It may recommend:
+Harness
+  ↓
+checks policy
+
+Safe?
+├── No  → Human Review
+└── Yes → Recovery Tool
+```
+
+---
+
+### 3. Diagnostic Agent
+
+The Diagnostic Agent is an LLM-based execution unit composed of:
+
+- LLM reasoning
+- system instructions
+- MCP diagnostic tools
+- RAG retrieval
+- structured output rules
+
+The Agent combines current engineering evidence with historical project knowledge.
+
+Current evidence may include:
+
+- Git status
+- Git diff
+- build results
+- test results
+
+Historical context may include:
+
+- known failure patterns
+- architecture notes
+- development notes
+- previously verified recovery incidents
+
+The Agent returns a structured diagnostic result:
+
+```text
+status
+evidence
+diagnosis
+recommended_action
+```
+
+Supported status values include:
+
+- `HEALTHY`
+- `BUILD_FAILED`
+- `TEST_FAILED`
+- `SUSPICIOUS`
+
+Supported recommendations include:
 
 - `none`
 - `clean_rebuild`
@@ -158,17 +248,200 @@ It may recommend:
 - `rerun_tests`
 - `human_review`
 
-The Harness independently checks the recommendation against an
-allowlist before executing any recovery action.
+---
 
-Automatic source-code modification is not permitted in v0.1.
+### 4. MCP Engineering Tools
+
+A local MCP server exposes engineering operations to Project Sentinel.
+
+Diagnostic tools include:
+
+- `git_status`
+- `git_diff`
+- `run_build`
+- `run_tests`
+
+Recovery tools include:
+
+- `reconfigure_project`
+- `clean_rebuild`
+
+The Diagnostic Agent is intentionally restricted to diagnostic tools.
+
+Recovery tools exist on the MCP server but are not directly exposed to the Diagnostic Agent.
+
+Instead:
+
+```text
+Diagnostic Agent
+    ↓
+recommended_action
+    ↓
+Harness Safety Policy
+    ↓
+Recovery MCP
+    ↓
+Actual system command
+```
+
+For example:
+
+```text
+Agent:
+"clean_rebuild is recommended"
+
+Harness:
+"clean_rebuild is allowlisted"
+
+Recovery MCP:
+remove build directory
+→ cmake configure
+→ cmake build
+```
+
+This separates AI judgment from execution authority.
+
+---
+
+### 5. RAG
+
+Historical project knowledge is stored in local Markdown documents.
+
+```text
+knowledge/
+├── architecture.md
+├── dev_notes.md
+└── past_errors.md
+```
+
+The RAG pipeline is:
+
+```text
+Markdown
+   ↓
+Chunking
+   ↓
+Embedding
+   ↓
+Normalized Vector Matrix
+   ↓
+Semantic Retrieval
+```
+
+`sentence-transformers/all-MiniLM-L6-v2` is used to generate 384-dimensional embeddings.
+
+The vectors are normalized, so inner-product ranking is equivalent to cosine-similarity ranking.
+
+A query such as:
+
+```text
+The CMake build directory appears stale or corrupted.
+```
+
+can retrieve historical knowledge such as:
+
+```text
+Stale CMake build directories can be recovered through
+clean configuration and rebuild.
+```
+
+The current implementation does not embed the entire monitored C/C++ source tree.
+
+Source changes are primarily inspected through Git diff, while RAG is used for historical engineering knowledge.
+
+---
+
+## Interaction with the Monitored Project
+
+Project Sentinel interacts with `latency-aware-target-control` through three main mechanisms.
+
+### Filesystem Events
+
+The Watcher observes changes to monitored source files.
+
+Example:
+
+```text
+common/src/steering_controller.c modified
+```
+
+The Watcher only detects the change. It does not interpret the C source.
+
+### Git
+
+The Agent can request Git information through MCP.
+
+```text
+git_status
+git_diff
+```
+
+If a tracked source file was actually modified, the Agent can inspect the changed lines through Git diff.
+
+Example:
+
+```diff
+- if (elapsed_ms > 300)
++ if (elapsed_ms >= 300)
+```
+
+A timestamp-only change such as `touch` generates a filesystem event but does not produce a Git diff because file contents remain unchanged.
+
+### Build and Test
+
+The Agent can inspect the functional effect of project changes through:
+
+```bash
+cmake --build build
+ctest --test-dir build --output-on-failure
+```
+
+This allows Sentinel to evaluate project health without needing to understand every line of C/C++ source directly.
+
+---
+
+## Safety Model
+
+The Diagnostic Agent cannot directly execute recovery tools.
+
+It may recommend an action, but the Harness independently evaluates whether that action is approved.
+
+Allowlisted automatic recovery actions currently include:
+
+```text
+clean_rebuild
+reconfigure_project
+rerun_tests
+```
+
+Actions requiring engineering judgment are blocked from automatic execution.
+
+For example:
+
+```text
+recommended_action = human_review
+        ↓
+Harness Safety Policy
+        ↓
+Automatic execution denied
+        ↓
+Human Review
+```
+
+Automatic source-code modification is not permitted in the current version.
+
+---
 
 ## Closed-Loop Recovery
+
+Project Sentinel uses a closed-loop recovery workflow.
 
 ```text
 Observe
    ↓
 Diagnose
+   ↓
+Retrieve Historical Knowledge
    ↓
 Decide
    ↓
@@ -180,27 +453,98 @@ Verify
    ↓
 Report
    ↓
+Learn
+   ↓
+Re-index
+   ↓
 Observe
 ```
 
-A recovery action is not considered successful merely because the
-tool invocation succeeded.
+A recovery action is not considered successful merely because the recovery command itself completed successfully.
 
-Project Sentinel performs build/test verification afterward and
-declares `AUTO-RECOVERED` only when the system returns to a healthy
-state.
+After a recovery action, Project Sentinel performs build and test verification again.
+
+Only when the project returns to a healthy state does the system declare:
+
+```text
+AUTO-RECOVERED
+```
+
+---
+
+## Self-Updating Knowledge Loop
+
+Verified recovery experiences are automatically reused as future RAG knowledge.
+
+Only incidents satisfying both conditions are added:
+
+```text
+Recovery Tool Success == True
+AND
+Post-Recovery Verification == HEALTHY
+```
+
+When an incident is successfully recovered:
+
+```text
+AUTO-RECOVERED
+    ↓
+Structured Incident Record
+    ↓
+Append to knowledge/past_errors.md
+    ↓
+Reload Knowledge Documents
+    ↓
+Rebuild Embedding Matrix
+    ↓
+New Knowledge Available to Future Agent Calls
+```
+
+Example generated knowledge:
+
+```markdown
+## Auto-Recovered Incident
+
+### Symptom
+
+Status: BUILD_FAILED
+
+Build failed because the CMake build state was stale.
+
+### Diagnosis
+
+The build directory was inconsistent.
+
+### Recovery
+
+Action: clean_rebuild
+
+### Verification
+
+Status: HEALTHY
+
+Build completed successfully and all 7 tests passed.
+
+### Result
+
+AUTO-RECOVERED
+```
+
+This converts RAG from a static knowledge-retrieval mechanism into an experience-accumulation loop based on verified engineering outcomes.
+
+Unverified diagnoses are not automatically promoted into reusable knowledge.
+
+---
 
 ## Fault Injection Validation
 
-A deterministic build-state failure is provided to validate the
-closed-loop recovery architecture.
+A deterministic build-state fault is provided to validate the closed-loop recovery architecture.
 
 ```bash
 touch ~/Desktop/latency-aware-target-control/build/.sentinel_force_reconfigure
 ```
 
-This fault causes the diagnostic build step to report a simulated
-stale/corrupted CMake build state.
+This marker causes the diagnostic build step to report a simulated stale/corrupted CMake build state.
 
 Expected sequence:
 
@@ -213,21 +557,32 @@ clean_rebuild recommended
     ↓
 Harness allowlist approval
     ↓
+Recovery MCP
+    ↓
 CMake clean configure + rebuild
+    ↓
+Post-recovery verification
     ↓
 7/7 tests pass
     ↓
 HEALTHY
     ↓
 AUTO-RECOVERED
+    ↓
+Incident appended to past_errors.md
+    ↓
+RAG index rebuilt
 ```
 
-This is a deterministic fault-injection test and is not presented as
-an accidental real-world CMake corruption.
+This is a deterministic fault-injection test used to validate the recovery pipeline.
+
+It is not presented as an accidental real-world CMake corruption.
+
+---
 
 ## Reports
 
-Each monitoring cycle produces persistent audit artifacts:
+Every monitoring cycle generates persistent audit artifacts.
 
 ```text
 reports/
@@ -235,23 +590,63 @@ reports/
 └── YYYYMMDD_HHMMSS_xxxxxx.md
 ```
 
-Reports include:
+Reports contain:
 
-- detected changes
-- diagnosis
-- evidence
+- detected source changes
+- diagnosis status
+- current evidence
+- most likely diagnosis
 - recommended action
-- recovery execution
-- recovery result
+- recovery execution result
 - post-recovery verification
 - final system status
 
+Example final states include:
+
+```text
+HEALTHY
+HUMAN_REVIEW
+AUTO-RECOVERED
+RECOVERY_FAILED
+ERROR
+```
+
+The JSON report provides structured trace data, while the Markdown report provides a human-readable engineering record.
+
+---
+
 ## Always-On Execution
 
-Project Sentinel can run as a `systemd --user` service.
+Project Sentinel can run continuously through a `systemd --user` service.
+
+Check service status:
 
 ```bash
 systemctl --user status project-sentinel.service
+```
+
+Start:
+
+```bash
+systemctl --user start project-sentinel.service
+```
+
+Stop:
+
+```bash
+systemctl --user stop project-sentinel.service
+```
+
+Enable automatic execution on user login:
+
+```bash
+systemctl --user enable project-sentinel.service
+```
+
+Disable automatic execution:
+
+```bash
+systemctl --user disable project-sentinel.service
 ```
 
 Live logs:
@@ -260,40 +655,141 @@ Live logs:
 journalctl --user -u project-sentinel.service -f
 ```
 
-## Monitored Project
+This enables the workflow:
 
-Current validation target:
+```text
+User Login
+    ↓
+systemd
+    ↓
+Project Sentinel
+    ↓
+RAG Initialization
+    ↓
+WATCHING
+```
 
-`latency-aware-target-control`
+---
 
-The target contains shared embedded-control logic and a CMake/CTest
-host-validation environment.
+## Verified Validation Scenario
 
-Seven host tests are currently used for deterministic verification.
+The following end-to-end scenario has been validated:
 
-## v0.1 Limitations
+```text
+Source Event
+    ↓
+Watcher
+    ↓
+Harness
+    ↓
+Diagnostic Agent
+    ↓
+MCP Build Failure Detection
+    ↓
+RAG Historical Knowledge Retrieval
+    ↓
+BUILD_FAILED
+    ↓
+clean_rebuild Recommended
+    ↓
+Harness Safety Approval
+    ↓
+Recovery MCP Execution
+    ↓
+CMake Reconfigure + Rebuild
+    ↓
+7/7 Tests Passed
+    ↓
+HEALTHY
+    ↓
+AUTO-RECOVERED
+    ↓
+JSON / Markdown Report
+    ↓
+Verified Incident Knowledge Update
+    ↓
+RAG Re-index
+    ↓
+Incident Retrieved in Later Semantic Search
+```
+
+A follow-up semantic retrieval test confirmed that the newly stored `Auto-Recovered Incident` could be retrieved as relevant historical context for a similar CMake build-state failure.
+
+---
+
+## Technology Stack
+
+- Python
+- OpenAI Agents SDK
+- Model Context Protocol (MCP)
+- `watchdog`
+- `sentence-transformers`
+- NumPy
+- Pydantic
+- CMake
+- CTest
+- Git
+- systemd
+- Markdown / JSON
+
+---
+
+## Current Limitations
 
 - No automatic source-code editing
 - Recovery actions are restricted to a fixed allowlist
-- Historical knowledge is maintained as local Markdown
-- One project is monitored per configured Sentinel instance
-- The LLM is used for diagnosis, not hard real-time control
+- One monitored project is configured per Sentinel instance
+- Historical knowledge is currently stored as local Markdown
+- The complete monitored source tree is not indexed into RAG
+- Knowledge updates are limited to successfully verified recovery incidents
+- Semantic indexing is rebuilt locally after knowledge updates
+- The LLM is used for diagnosis and engineering orchestration, not hard real-time control
+
+---
 
 ## Future Work
 
-v0.2 may add controlled source-patch workflows:
+Future versions may explore controlled source-patch workflows.
 
 ```text
+Failure
+    ↓
 Patch Proposal
     ↓
 Human Approval
     ↓
-Apply
+Apply Patch
     ↓
 Build / Test
     ↓
-Accept or Rollback
+Accept
+   or
+Rollback
 ```
 
-The core Watcher → Harness → Agent/MCP/RAG architecture can remain
-unchanged while adding these higher-risk capabilities.
+Additional extensions may include:
+
+- source-code-aware RAG
+- Git commit and issue-history retrieval
+- build-log knowledge extraction
+- incident deduplication
+- confidence thresholds before knowledge promotion
+- human approval before long-term knowledge insertion
+- multiple monitored projects
+- rollback-capable recovery actions
+
+The core architecture can remain:
+
+```text
+Watcher
+→ Harness
+→ Agent
+→ MCP / RAG
+→ Safety Policy
+→ Recovery
+→ Verification
+→ Report
+→ Knowledge Update
+```
+
+while higher-risk capabilities are added incrementally.
